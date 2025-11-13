@@ -9,6 +9,8 @@ The Contact Allocator reads contact data from a Google Sheet and automatically d
 - **Center Matching**: Matches contacts to Spamurais based on geographic center
 - **Priority-Based Distribution**: Processes high-priority sources first
 - **Round-Robin Allocation**: Ensures even distribution across eligible Spamurais
+- **Incremental Mode**: Auto-detects existing allocations and merges new contacts seamlessly
+- **Smart Deduplication**: Three-layer deduplication prevents duplicate allocations
 - **Complete Reporting**: Generates comprehensive allocation statistics
 
 ## 🚀 Quick Start
@@ -69,35 +71,111 @@ The script creates `allocation_output.xlsx` with:
 - Arjun (contacts allocated to Arjun)
 - Unallocated (contacts that couldn't be allocated, if any)
 
-## ⚙️ Configuration
+## 🔄 Incremental Mode (Auto-Detected)
 
-### Using config.json
+When you run the allocator and the output file already exists, the script automatically detects this and offers you a choice:
 
-Add to your `config.json`:
+### How It Works
 
-```json
-{
-  "contact_allocator": {
-    "input_sheet_url": "https://docs.google.com/spreadsheets/d/YOUR_ID/edit",
-    "contacts_tab": "All Contacts",
-    "spamurais_tab": "Spamurais",
-    "priorities_tab": "Source Priorities",
-    "output_filename": "allocation_output.xlsx"
-  }
-}
+1. **Auto-Detection**: Script detects existing `allocation_output.xlsx`
+2. **Shows Statistics**: Displays existing allocation counts
+3. **User Prompt**: Asks you to choose:
+
+```
+📂 EXISTING ALLOCATION FILE DETECTED
+File: allocation_output.xlsx
+
+Existing allocations: 150 contacts across 3 Spamurais
+
+Options:
+  1. INCREMENTAL - Add new contacts to existing allocations (recommended)
+  2. FRESH - Start over and replace all allocations
+
+Enter choice (1/2):
 ```
 
-Then run:
+### Option 1: INCREMENTAL Mode (Recommended)
+
+**What happens:**
+- ✅ Existing allocations are preserved
+- ✅ Already-allocated contacts are skipped (no duplicates)
+- ✅ Only NEW contacts are allocated
+- ✅ Results are merged into the same file
+- ✅ Inactive Spamurais are preserved
+
+**Use when:**
+- Adding new contacts to an existing campaign
+- Updating with fresh data from Google Sheets
+- You want to maintain existing allocations
+
+**Example:**
+```
+Existing file has:
+- Rahul: 50 contacts
+- Priya: 45 contacts
+
+New input has:
+- 100 contacts (95 old + 5 new)
+
+Result after INCREMENTAL:
+- Rahul: 50 + 3 = 53 contacts
+- Priya: 45 + 2 = 47 contacts
+```
+
+### Option 2: FRESH Mode
+
+**What happens:**
+- ❌ Existing file is completely replaced
+- ✅ All contacts re-allocated from scratch
+- ✅ New round-robin distribution
+
+**Use when:**
+- Starting a completely new campaign
+- Fixing errors in previous allocation
+- Redistributing contacts among different Spamurais
+
+### Deduplication Layers
+
+The incremental mode implements three layers of deduplication:
+
+1. **Input Deduplication**: Removes duplicate phone numbers from input (keeps first occurrence)
+2. **Already-Allocated Filter**: Skips contacts already in existing allocations
+3. **Per-Tab Merge**: Deduplicates when merging existing + new contacts per Spamurai
+
+### Summary Output in Incremental Mode
+
+The summary tab shows comprehensive statistics:
+
+```
+INPUT STATISTICS:
+- Total input contacts: 100
+- Duplicate contacts removed: 5
+- Already allocated (skipped): 90
+- New contacts to allocate: 5
+
+ALLOCATION RESULTS (New Only):
+- Rahul: 3 contacts
+- Priya: 2 contacts
+
+CUMULATIVE TOTALS (Existing + New):
+- Rahul: 53 contacts (50 existing + 3 new)
+- Priya: 47 contacts (45 existing + 2 new)
+```
+
+### Bypassing Interactive Prompt
+
+For automated workflows where you can't provide interactive input, use `--dry-run` to test without creating output:
+
 ```bash
-python src/allocate_contacts.py --config config.json
+# Test allocation without creating file (no prompt)
+python src/allocate_contacts.py --sheet-url "URL" --dry-run
 ```
 
-### Command Line Options
+## ⚙️ Command Line Options
 
 ```
---sheet-url           Google Sheets URL (required if not using --config)
+--sheet-url           Google Sheets URL (required)
 --output              Output Excel filename (default: allocation_output.xlsx)
---config              Path to config.json file
 --contacts-tab        Name of contacts tab (default: "All Contacts")
 --spamurais-tab       Name of Spamurais tab (default: "Spamurais")
 --priorities-tab      Name of priorities tab (default: "Source Priorities")
