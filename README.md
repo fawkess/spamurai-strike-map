@@ -1,4 +1,4 @@
-# 🎯 SPAMURAI Contact Allocator
+# 🎯 SPAMURAI Strike Map
 
 Automated contact distribution tool that allocates contacts to Spamurais based on center matching and source priorities.
 
@@ -286,6 +286,32 @@ All dependencies already included in main `requirements.txt`.
 - **Self-Contained**: Output includes both input and results in one file
 - **Rerunnable**: Can rerun anytime with updated data
 - **No Data Loss**: Original input tabs preserved in output
+
+## 🧪 Testing
+
+The project includes a comprehensive test suite with 40+ test cases covering all functionality.
+
+### Run Tests
+
+```bash
+# Quick test run
+pytest
+
+# With coverage report
+./run_tests.sh --coverage
+
+# Verbose output
+./run_tests.sh --verbose
+```
+
+### Test Coverage
+
+- Unit tests for all core allocation logic
+- Integration tests for CLI and end-to-end workflows
+- 10 reusable test fixtures covering various scenarios
+- Performance tests with large datasets
+
+See [TESTING.md](TESTING.md) for complete testing documentation.
 
 ## 🆘 Support
 
