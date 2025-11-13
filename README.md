@@ -136,7 +136,7 @@ Result after INCREMENTAL:
 
 ### Deduplication Layers
 
-The incremental mode implements three layers of deduplication:
+The incremental mode implements three layers of deduplication to ensure no contact is allocated multiple times, either within the input data, across allocation runs, or when merging results:
 
 1. **Input Deduplication**: Removes duplicate phone numbers from input (keeps first occurrence)
 2. **Already-Allocated Filter**: Skips contacts already in existing allocations
