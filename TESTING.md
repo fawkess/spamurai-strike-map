@@ -43,8 +43,11 @@ pip install -r requirements.txt
 This installs:
 - `pytest` - Test framework
 - `pytest-cov` - Coverage reporting
+- All required dependencies (pandas, openpyxl, requests)
 
 ### 2. Generate Test Fixtures
+
+The test fixtures are already included in the repository, but you can regenerate them:
 
 ```bash
 python3 tests/create_test_fixtures.py
@@ -55,14 +58,28 @@ This creates 10 Excel files in `tests/fixtures/` with various test scenarios.
 ### 3. Run All Tests
 
 ```bash
-pytest
+# Use python3 -m pytest (recommended)
+python3 -m pytest -v
+
+# Or use the test runner script
+./run_tests.sh
 ```
 
-Or with verbose output:
+**Note**: Use `python3 -m pytest` instead of just `pytest` to ensure the correct Python environment.
+
+### 4. View Test Health Report
+
+After running tests, check the comprehensive health report:
 
 ```bash
-pytest -v
+cat TEST_HEALTH_REPORT.md
 ```
+
+This shows:
+- Which functionality is working vs broken
+- Detailed failure analysis
+- Recommended fix order
+- Quick diagnostic commands
 
 ---
 

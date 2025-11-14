@@ -47,3 +47,5 @@ allocation_output.xlsx
 # Config (if added later)
 config.json
 credentials.json
+.coverage
+htmlcov/

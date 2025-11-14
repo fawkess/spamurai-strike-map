@@ -13,8 +13,10 @@ Usage:
         allocator.write_to_sheets(output_sheet_url)
 """
 
+import os
 import random
 from collections import defaultdict
+import pandas as pd
 
 
 class ContactAllocator:
@@ -617,7 +619,7 @@ class ContactAllocator:
                 priority_distribution[contact['priority']] += 1
 
         return {
-            'spamurais': {s['name']: s['allocated_contacts'] for s in self.spamurais},
+            'spamurai_allocations': {s['name']: s['allocated_contacts'] for s in self.spamurais},
             'unallocated': self.unallocated,
             'summary': {
                 'total_contacts': total_contacts,

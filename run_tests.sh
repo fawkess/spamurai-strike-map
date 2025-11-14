@@ -59,7 +59,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Build pytest command
-PYTEST_CMD="pytest"
+PYTEST_CMD="python3 -m pytest"
 
 if [ "$VERBOSE" = true ]; then
     PYTEST_CMD="$PYTEST_CMD -v"

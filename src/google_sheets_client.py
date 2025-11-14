@@ -220,12 +220,44 @@ class GoogleSheetsClient:
         Download messages from a specific tab by name
 
         Args:
-            sheet_url: Full Google Sheets URL
+            sheet_url: Full Google Sheets URL or local Excel file path
             tab_name: Name of the tab/sheet
 
         Returns:
             List of rows from that tab
         """
+        # Check if it's a local file path (for testing)
+        if os.path.exists(sheet_url) and sheet_url.endswith(('.xlsx', '.xls')):
+            self.logger.info(f"Reading tab '{tab_name}' from local file: {sheet_url}")
+            try:
+                # Read specific sheet by name
+                df = pd.read_excel(sheet_url, sheet_name=tab_name)
+
+                # Convert to list of rows
+                rows = self._dataframe_to_rows(df)
+
+                # Get available sheet names for error messaging
+                available_sheets = self._get_available_sheets(sheet_url)
+
+                if not rows:
+                    raise Exception(f"Tab '{tab_name}' is empty")
+
+                self.logger.info(f"Successfully read {len(rows)} rows from tab '{tab_name}'")
+
+                return rows, available_sheets
+
+            except ValueError as e:
+                # Sheet name not found
+                available_sheets = self._get_available_sheets(sheet_url)
+
+                raise Exception(
+                    f"Tab '{tab_name}' not found.\n"
+                    f"Available tabs: {', '.join(available_sheets)}"
+                )
+            except Exception as e:
+                raise Exception(f"Failed to read tab '{tab_name}': {str(e)}")
+
+        # Otherwise, treat as Google Sheets URL
         spreadsheet_id = self.extract_spreadsheet_id(sheet_url)
 
         self.logger.info(f"Downloading tab '{tab_name}' from Google Sheets: {spreadsheet_id}")
