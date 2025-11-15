@@ -233,9 +233,11 @@ class ContactAllocator:
 
     def _validate_center_consistency(self):
         """
-        STRICT VALIDATION:
-        - If ANY contact has center, ALL must have center
-        - If ANY Spamurai has center, ALL must have center
+        RELAXED VALIDATION:
+        Centers are completely optional. Mixed scenarios are allowed.
+        - Contacts can have centers or not
+        - Spamurais can have centers or not
+        - Allocation happens regardless of center matching
 
         Returns:
             (is_valid, error_message) tuple
@@ -244,54 +246,34 @@ class ContactAllocator:
         contacts_with_center = [c for c in self.contacts if c.get('Center')]
         contacts_without_center = [c for c in self.contacts if not c.get('Center')]
 
-        if contacts_with_center and contacts_without_center:
-            self.logger.error(
-                f"❌ CENTER VALIDATION FAILED FOR CONTACTS:\n"
-                f"   {len(contacts_with_center)} contacts have center\n"
-                f"   {len(contacts_without_center)} contacts missing center\n"
-                f"   Either ALL contacts must have center or NONE."
-            )
-            # Show examples
-            self.logger.error(f"\n   Examples with center: {contacts_with_center[:3]}")
-            self.logger.error(f"   Examples without center: {contacts_without_center[:3]}")
-
-            return (False,
-                    f"Center validation failed for CONTACTS: "
-                    f"{len(contacts_with_center)} have center, "
-                    f"{len(contacts_without_center)} missing center. "
-                    f"Either ALL contacts must have center or NONE.")
-
         # Check Spamurais
         spamurais_with_center = [s for s in self.spamurais if s.get('Center')]
         spamurais_without_center = [s for s in self.spamurais if not s.get('Center')]
 
-        if spamurais_with_center and spamurais_without_center:
-            self.logger.error(
-                f"❌ CENTER VALIDATION FAILED FOR SPAMURAIS:\n"
-                f"   {len(spamurais_with_center)} Spamurais have center\n"
-                f"   {len(spamurais_without_center)} Spamurais missing center\n"
-                f"   Either ALL Spamurais must have center or NONE."
+        # Log info about centers (informational only, not a failure)
+        if contacts_with_center and contacts_without_center:
+            self.logger.info(
+                f"ℹ️  Mixed centers in contacts: "
+                f"{len(contacts_with_center)} with center, "
+                f"{len(contacts_without_center)} without center"
             )
-            # Show examples
-            self.logger.error(f"\n   With center: {[s['Name'] for s in spamurais_with_center]}")
-            self.logger.error(f"   Without center: {[s['Name'] for s in spamurais_without_center]}")
-
-            return (False,
-                    f"Center validation failed for SPAMURAIS: "
-                    f"{len(spamurais_with_center)} have center, "
-                    f"{len(spamurais_without_center)} missing center. "
-                    f"Either ALL Spamurais must have center or NONE.")
-
-        # Log validation results
-        if contacts_with_center:
+        elif contacts_with_center:
             self.logger.info(f"✅ All {len(self.contacts)} contacts have center")
         else:
-            self.logger.info(f"✅ No contacts have center (center matching disabled)")
+            self.logger.info(f"✅ No contacts have center")
 
-        if spamurais_with_center:
+        if spamurais_with_center and spamurais_without_center:
+            self.logger.info(
+                f"ℹ️  Mixed centers in Spamurais: "
+                f"{len(spamurais_with_center)} with center, "
+                f"{len(spamurais_without_center)} without center"
+            )
+        elif spamurais_with_center:
             self.logger.info(f"✅ All {len(self.spamurais)} Spamurais have center")
         else:
-            self.logger.info(f"✅ No Spamurais have center (center matching disabled)")
+            self.logger.info(f"✅ No Spamurais have center")
+
+        self.logger.info(f"ℹ️  Center matching is optional - contacts can be allocated to any Spamurai")
 
         return (True, None)
 
@@ -559,41 +541,24 @@ class ContactAllocator:
         """
         Get Spamurais eligible for this contact
 
-        Rules:
-        - If both have centers: must match exactly
-        - If neither has centers: all eligible
+        Rules (RELAXED):
+        - Centers are optional and for informational purposes only
+        - All Spamurais are eligible for all contacts regardless of center matching
 
         Args:
             contact: Contact dictionary
 
         Returns:
-            List of eligible Spamurai dictionaries
+            List of eligible Spamurai dictionaries (all Spamurais)
         """
-        eligible = []
-        contact_center = contact.get('Center')
-
-        for spamurai in self.spamurais:
-            spamurai_center = spamurai.get('Center')
-
-            # Both have centers - must match
-            if contact_center and spamurai_center:
-                if contact_center == spamurai_center:
-                    eligible.append(spamurai)
-            # Neither has centers - eligible
-            elif not contact_center and not spamurai_center:
-                eligible.append(spamurai)
-
-        return eligible
+        # All Spamurais are eligible - centers are optional
+        return self.spamurais
 
     def _get_unallocation_reason(self, contact):
         """Get reason why contact couldn't be allocated"""
-        contact_center = contact.get('Center')
-
-        if contact_center:
-            # Check if any Spamurai has this center
-            spamurai_centers = [s.get('Center') for s in self.spamurais if s.get('Center')]
-            if contact_center not in spamurai_centers:
-                return f"No Spamurai with center '{contact_center}'"
+        # With relaxed rules, contacts should only be unallocated if no Spamurais exist
+        if not self.spamurais:
+            return "No Spamurais available"
 
         return "Unknown reason"
 

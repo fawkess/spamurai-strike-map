@@ -73,21 +73,48 @@ class TestCLIInterface:
         assert 'DRY RUN MODE' in result.stdout
 
     def test_cli_validation_failure(self):
-        """Test CLI exits with error on validation failure"""
-        fixture = os.path.join(FIXTURES_DIR, 'invalid_contacts_centers.xlsx')
+        """Test CLI exits with error on validation failure (empty contacts)"""
+        # Create a fixture with empty contacts tab
+        fixture_path = os.path.join(FIXTURES_DIR, 'test_empty_contacts.xlsx')
+
+        contacts = pd.DataFrame({
+            'Name': [],
+            'Phone Number': [],
+            'Center': [],
+            'Source of Interest': []
+        })
+
+        spamurais = pd.DataFrame({
+            'Name': ['Rahul'],
+            'Center': ['']
+        })
+
+        priorities = pd.DataFrame({
+            'Source of Interest': ['Workshop'],
+            'Priority': [1]
+        })
+
+        with pd.ExcelWriter(fixture_path, engine='openpyxl') as writer:
+            contacts.to_excel(writer, sheet_name='All Contacts', index=False)
+            spamurais.to_excel(writer, sheet_name='Spamurais', index=False)
+            priorities.to_excel(writer, sheet_name='Source Priorities', index=False)
+
         script = os.path.join(SRC_DIR, 'allocate_contacts.py')
 
         result = subprocess.run(
-            ['python3', script, '--sheet-url', fixture],
+            ['python3', script, '--sheet-url', fixture_path],
             capture_output=True,
             text=True
         )
 
-        # Should fail
+        # Cleanup
+        os.remove(fixture_path)
+
+        # Should fail due to no contacts
         assert result.returncode == 1
 
         # Check error message
-        assert 'VALIDATION FAILED' in result.stdout
+        assert 'No contacts found' in result.stdout
 
     def test_cli_custom_tab_names(self, temp_output):
         """Test CLI with custom tab names"""
@@ -184,7 +211,7 @@ class TestEndToEndWorkflows:
             pass  # Can't easily verify without reading input
 
     def test_workflow_with_unallocated(self, temp_output):
-        """Test workflow that produces unallocated contacts"""
+        """Test workflow with relaxed center rules - all contacts allocated"""
         fixture = os.path.join(FIXTURES_DIR, 'unallocated_contacts.xlsx')
         script = os.path.join(SRC_DIR, 'allocate_contacts.py')
 
@@ -197,14 +224,20 @@ class TestEndToEndWorkflows:
         assert result.returncode == 0
         assert os.path.exists(temp_output)
 
-        # Should have Unallocated tab
+        # With relaxed center rules, all contacts should be allocated
+        # So there should be NO Unallocated tab
         excel_file = pd.ExcelFile(temp_output)
-        assert 'Unallocated' in excel_file.sheet_names
+        assert 'Unallocated' not in excel_file.sheet_names
 
-        # Verify Unallocated tab has Reason column
-        unallocated_df = pd.read_excel(excel_file, sheet_name='Unallocated')
-        assert 'Reason' in unallocated_df.columns
-        assert len(unallocated_df) > 0
+        # Verify all contacts were allocated to Spamurai tabs
+        total_contacts = 0
+        for sheet_name in ['Rahul', 'Priya']:
+            if sheet_name in excel_file.sheet_names:
+                df = pd.read_excel(excel_file, sheet_name=sheet_name)
+                total_contacts += len(df)
+
+        # Should have all 4 contacts from the fixture allocated
+        assert total_contacts == 4
 
     def test_workflow_with_duplicates(self, temp_output):
         """Test workflow handles duplicates correctly"""
