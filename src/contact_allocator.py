@@ -273,7 +273,7 @@ class ContactAllocator:
         else:
             self.logger.info(f"✅ No Spamurais have center")
 
-        self.logger.info(f"ℹ️  Center matching is optional - contacts can be allocated to any Spamurai")
+        self.logger.info(f"ℹ️  Flexible center matching: contacts/Spamurais without centers can match anyone; those with centers must match exactly")
 
         return (True, None)
 
@@ -541,24 +541,53 @@ class ContactAllocator:
         """
         Get Spamurais eligible for this contact
 
-        Rules (RELAXED):
-        - Centers are optional and for informational purposes only
-        - All Spamurais are eligible for all contacts regardless of center matching
+        Rules (FLEXIBLE CENTER MATCHING):
+        - If contact has NO center → eligible for ALL Spamurais
+        - If Spamurai has NO center → eligible for ALL contacts
+        - If BOTH have centers → must match exactly
+        - Mixed scenarios are allowed (some with centers, some without)
 
         Args:
             contact: Contact dictionary
 
         Returns:
-            List of eligible Spamurai dictionaries (all Spamurais)
+            List of eligible Spamurai dictionaries
         """
-        # All Spamurais are eligible - centers are optional
-        return self.spamurais
+        eligible = []
+        contact_center = contact.get('Center')
+
+        for spamurai in self.spamurais:
+            spamurai_center = spamurai.get('Center')
+
+            # If contact has no center, can go to any Spamurai
+            if not contact_center:
+                eligible.append(spamurai)
+            # If Spamurai has no center, can receive any contact
+            elif not spamurai_center:
+                eligible.append(spamurai)
+            # Both have centers - must match
+            elif contact_center == spamurai_center:
+                eligible.append(spamurai)
+
+        return eligible
 
     def _get_unallocation_reason(self, contact):
         """Get reason why contact couldn't be allocated"""
-        # With relaxed rules, contacts should only be unallocated if no Spamurais exist
+        contact_center = contact.get('Center')
+
         if not self.spamurais:
             return "No Spamurais available"
+
+        if contact_center:
+            # Contact has a center but no matching Spamurai
+            available_centers = [s.get('Center') for s in self.spamurais if s.get('Center')]
+            if contact_center not in available_centers:
+                # Check if there are any Spamurais without centers
+                spamurais_without_center = [s for s in self.spamurais if not s.get('Center')]
+                if spamurais_without_center:
+                    return f"No exact center match for '{contact_center}' (Spamurais without centers could receive this)"
+                else:
+                    return f"No Spamurai with center '{contact_center}'"
 
         return "Unknown reason"
 

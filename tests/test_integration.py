@@ -218,7 +218,7 @@ class TestEndToEndWorkflows:
             pass  # Can't easily verify without reading input
 
     def test_workflow_with_unallocated(self, temp_output):
-        """Test workflow with relaxed center rules - all contacts allocated"""
+        """Test workflow with flexible center matching - some contacts unallocated"""
         fixture = os.path.join(FIXTURES_DIR, 'unallocated_contacts.xlsx')
         script = os.path.join(SRC_DIR, 'allocate_contacts.py')
 
@@ -231,20 +231,23 @@ class TestEndToEndWorkflows:
         assert result.returncode == 0
         assert os.path.exists(temp_output)
 
-        # With relaxed center rules, all contacts should be allocated
-        # So there should be NO Unallocated tab
+        # Charlie (Bangalore) should be unallocated - no Bangalore Spamurai
         excel_file = pd.ExcelFile(temp_output)
-        assert 'Unallocated' not in excel_file.sheet_names
+        assert 'Unallocated' in excel_file.sheet_names
 
-        # Verify all contacts were allocated to Spamurai tabs
+        # Verify Unallocated tab has Charlie
+        unallocated_df = pd.read_excel(excel_file, sheet_name='Unallocated')
+        assert len(unallocated_df) == 1
+        assert 'Charlie' in unallocated_df['Name'].values
+
+        # Verify 3 contacts were allocated (Alice, Bob, David)
         total_contacts = 0
         for sheet_name in ['Rahul', 'Priya']:
             if sheet_name in excel_file.sheet_names:
                 df = pd.read_excel(excel_file, sheet_name=sheet_name)
                 total_contacts += len(df)
 
-        # Should have all 4 contacts from the fixture allocated
-        assert total_contacts == 4
+        assert total_contacts == 3
 
     def test_workflow_with_duplicates(self, temp_output):
         """Test workflow handles duplicates correctly"""

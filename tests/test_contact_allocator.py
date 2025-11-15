@@ -156,7 +156,7 @@ class TestCenterBasedAllocation:
     """Test allocation with center matching"""
 
     def test_center_matching(self, logger, temp_output):
-        """Test allocation with centers defined (centers are now optional/informational)"""
+        """Test flexible center matching - contacts match Spamurais with same center"""
         fixture = os.path.join(FIXTURES_DIR, 'center_based_allocation.xlsx')
 
         allocator = ContactAllocator(fixture, logger)
@@ -165,18 +165,30 @@ class TestCenterBasedAllocation:
         allocator.preprocess_data()
         result = allocator.allocate()
 
-        # With relaxed center rules, all contacts should be allocated
-        # Centers are informational only - contacts can go to any Spamurai
-        total_allocated = sum(len(contacts) for contacts in result['spamurai_allocations'].values())
-        assert total_allocated > 0
+        # Verify contacts are allocated to Spamurais with matching centers
+        rahul_contacts = result['spamurai_allocations']['Rahul']
+        arjun_contacts = result['spamurai_allocations']['Arjun']
+        priya_contacts = result['spamurai_allocations']['Priya']
 
-        # Verify all Spamurais got some contacts (due to round-robin)
-        assert len(result['spamurai_allocations']['Rahul']) >= 0
-        assert len(result['spamurai_allocations']['Arjun']) >= 0
-        assert len(result['spamurai_allocations']['Priya']) >= 0
+        # Rahul has Mumbai center - should only get Mumbai contacts
+        for contact in rahul_contacts:
+            assert contact['Center'] == 'Mumbai', f"Rahul (Mumbai) got {contact['Name']} with center {contact['Center']}"
+
+        # Arjun has Mumbai center - should only get Mumbai contacts
+        for contact in arjun_contacts:
+            assert contact['Center'] == 'Mumbai', f"Arjun (Mumbai) got {contact['Name']} with center {contact['Center']}"
+
+        # Priya has Delhi center - should only get Delhi contacts
+        for contact in priya_contacts:
+            assert contact['Center'] == 'Delhi', f"Priya (Delhi) got {contact['Name']} with center {contact['Center']}"
+
+        # Grace (Bangalore) should be unallocated - no Bangalore Spamurai
+        assert len(result['unallocated']) == 1
+        assert result['unallocated'][0]['Name'] == 'Grace'
+        assert result['unallocated'][0]['Center'] == 'Bangalore'
 
     def test_unallocated_center_mismatch(self, logger, temp_output):
-        """Test all contacts are allocated even with center mismatches (relaxed rules)"""
+        """Test contacts with center mismatch are unallocated (flexible center matching)"""
         fixture = os.path.join(FIXTURES_DIR, 'unallocated_contacts.xlsx')
 
         allocator = ContactAllocator(fixture, logger)
@@ -185,13 +197,17 @@ class TestCenterBasedAllocation:
         allocator.preprocess_data()
         result = allocator.allocate()
 
-        # With relaxed center rules, all contacts should be allocated
-        # Charlie (Bangalore) should now be allocated even though no Spamurai has Bangalore center
-        assert len(result['unallocated']) == 0
+        # Charlie (Bangalore) should be unallocated because:
+        # - Charlie has center "Bangalore"
+        # - No Spamurai has center "Bangalore"
+        # - No Spamurai without center exists (both have centers)
+        assert len(result['unallocated']) == 1
+        assert result['unallocated'][0]['Name'] == 'Charlie'
+        assert result['unallocated'][0]['Center'] == 'Bangalore'
 
-        # All 4 contacts should be allocated
+        # Other 3 contacts (Alice-Mumbai, Bob-Delhi, David-Mumbai) should be allocated
         total_allocated = sum(len(contacts) for contacts in result['spamurai_allocations'].values())
-        assert total_allocated == 4
+        assert total_allocated == 3
 
     def test_center_validation_contacts_mixed(self, logger):
         """Test validation passes when some contacts have centers and some don't (relaxed rules)"""
