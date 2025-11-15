@@ -17,6 +17,8 @@ from google_sheets_client import GoogleSheetsClient
 
 # Test fixtures directory
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), 'fixtures')
+# Test output directory for temporary test files
+TEST_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), 'test_output')
 
 
 @pytest.fixture
@@ -151,8 +153,9 @@ class TestExcelFileHandling:
 
     def test_handle_empty_tab(self, client, logger):
         """Test reading empty tab"""
-        # Create fixture with empty tab
-        fixture_path = os.path.join(FIXTURES_DIR, 'empty_tab.xlsx')
+        # Create fixture with empty tab in test_output directory
+        os.makedirs(TEST_OUTPUT_DIR, exist_ok=True)
+        fixture_path = os.path.join(TEST_OUTPUT_DIR, 'empty_tab.xlsx')
 
         empty_df = pd.DataFrame()
 

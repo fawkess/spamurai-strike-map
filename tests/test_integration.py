@@ -14,13 +14,18 @@ import pandas as pd
 # Test fixtures directory
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), 'fixtures')
 SRC_DIR = os.path.join(os.path.dirname(__file__), '..', 'src')
+TEST_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), 'test_output')
 
 
 @pytest.fixture
 def temp_output():
-    """Create temporary output file path (without creating the file)"""
-    # Generate a unique temporary file path without creating the file
-    fd, tmp_path = tempfile.mkstemp(suffix='.xlsx')
+    """Create temporary output file path in tests directory (without creating the file)"""
+    # Create test_output directory within tests/
+    test_output_dir = os.path.join(os.path.dirname(__file__), 'test_output')
+    os.makedirs(test_output_dir, exist_ok=True)
+
+    # Generate a unique temporary file path in test_output/ without creating the file
+    fd, tmp_path = tempfile.mkstemp(suffix='.xlsx', dir=test_output_dir)
     os.close(fd)  # Close the file descriptor
     os.unlink(tmp_path)  # Delete the empty file created by mkstemp
     yield tmp_path
@@ -74,8 +79,9 @@ class TestCLIInterface:
 
     def test_cli_validation_failure(self):
         """Test CLI exits with error on validation failure (empty contacts)"""
-        # Create a fixture with empty contacts tab
-        fixture_path = os.path.join(FIXTURES_DIR, 'test_empty_contacts.xlsx')
+        # Create a fixture with empty contacts tab in test_output directory
+        os.makedirs(TEST_OUTPUT_DIR, exist_ok=True)
+        fixture_path = os.path.join(TEST_OUTPUT_DIR, 'test_empty_contacts.xlsx')
 
         contacts = pd.DataFrame({
             'Name': [],
@@ -118,8 +124,9 @@ class TestCLIInterface:
 
     def test_cli_custom_tab_names(self, temp_output):
         """Test CLI with custom tab names"""
-        # Create fixture with custom tab names
-        fixture_path = os.path.join(FIXTURES_DIR, 'custom_tabs.xlsx')
+        # Create fixture with custom tab names in test_output directory
+        os.makedirs(TEST_OUTPUT_DIR, exist_ok=True)
+        fixture_path = os.path.join(TEST_OUTPUT_DIR, 'custom_tabs.xlsx')
 
         contacts = pd.DataFrame({
             'Name': ['Alice', 'Bob'],

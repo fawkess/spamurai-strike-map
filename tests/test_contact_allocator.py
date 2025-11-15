@@ -19,6 +19,8 @@ from contact_allocator import ContactAllocator
 
 # Test fixtures directory
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), 'fixtures')
+# Test output directory for temporary test files
+TEST_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), 'test_output')
 
 
 @pytest.fixture
@@ -31,12 +33,19 @@ def logger():
 
 @pytest.fixture
 def temp_output():
-    """Create temporary output file"""
-    with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-        yield tmp.name
+    """Create temporary output file in tests directory"""
+    # Create test_output directory within tests/
+    test_output_dir = os.path.join(os.path.dirname(__file__), 'test_output')
+    os.makedirs(test_output_dir, exist_ok=True)
+
+    # Generate a unique temporary file path in test_output/
+    fd, tmp_path = tempfile.mkstemp(suffix='.xlsx', dir=test_output_dir)
+    os.close(fd)  # Close the file descriptor
+    os.unlink(tmp_path)  # Delete the empty file created by mkstemp
+    yield tmp_path
     # Cleanup
-    if os.path.exists(tmp.name):
-        os.remove(tmp.name)
+    if os.path.exists(tmp_path):
+        os.remove(tmp_path)
 
 
 class TestBasicAllocation:
@@ -357,8 +366,9 @@ class TestEdgeCases:
 
     def test_empty_contacts(self, logger):
         """Test handling of empty contacts list"""
-        # Create empty fixture
-        fixture_path = os.path.join(FIXTURES_DIR, 'empty_contacts.xlsx')
+        # Create empty fixture in test_output directory
+        os.makedirs(TEST_OUTPUT_DIR, exist_ok=True)
+        fixture_path = os.path.join(TEST_OUTPUT_DIR, 'empty_contacts.xlsx')
 
         contacts = pd.DataFrame({
             'Name': [],
@@ -394,8 +404,9 @@ class TestEdgeCases:
 
     def test_single_spamurai(self, logger, temp_output):
         """Test allocation with only one Spamurai"""
-        # Create fixture with single Spamurai
-        fixture_path = os.path.join(FIXTURES_DIR, 'single_spamurai.xlsx')
+        # Create fixture with single Spamurai in test_output directory
+        os.makedirs(TEST_OUTPUT_DIR, exist_ok=True)
+        fixture_path = os.path.join(TEST_OUTPUT_DIR, 'single_spamurai.xlsx')
 
         contacts = pd.DataFrame({
             'Name': ['Alice', 'Bob', 'Charlie'],
@@ -478,8 +489,9 @@ class TestRoundRobinDistribution:
 
     def test_uneven_distribution(self, logger, temp_output):
         """Test round-robin handles uneven division"""
-        # Create fixture with 7 contacts and 2 Spamurais
-        fixture_path = os.path.join(FIXTURES_DIR, 'uneven_distribution.xlsx')
+        # Create fixture with 7 contacts and 2 Spamurais in test_output directory
+        os.makedirs(TEST_OUTPUT_DIR, exist_ok=True)
+        fixture_path = os.path.join(TEST_OUTPUT_DIR, 'uneven_distribution.xlsx')
 
         contacts = pd.DataFrame({
             'Name': ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
