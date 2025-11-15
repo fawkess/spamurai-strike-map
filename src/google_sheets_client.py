@@ -240,9 +240,9 @@ class GoogleSheetsClient:
                 available_sheets = self._get_available_sheets(sheet_url)
 
                 if not rows:
-                    raise Exception(f"Tab '{tab_name}' is empty")
-
-                self.logger.info(f"Successfully read {len(rows)} rows from tab '{tab_name}'")
+                    self.logger.warning(f"Tab '{tab_name}' is empty - returning empty DataFrame")
+                else:
+                    self.logger.info(f"Successfully read {len(rows)} rows from tab '{tab_name}'")
 
                 return rows, available_sheets
 

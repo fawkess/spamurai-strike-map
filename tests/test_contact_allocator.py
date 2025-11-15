@@ -87,18 +87,21 @@ class TestBasicAllocation:
         allocator.preprocess_data()
         result = allocator.allocate()
 
-        # Get all allocated contacts in order
+        # Verify priority ordering - collect all contacts with their priorities
         all_allocated = []
         for spamurai_name, contacts in result['spamurai_allocations'].items():
             all_allocated.extend(contacts)
 
-        # Priority 1 (Workshop) contacts should come first
-        # We have Alice, Charlie, Eve with Workshop (Priority 1)
-        workshop_phones = {'1111111111', '3333333333', '5555555555'}
-        first_three = {c['Phone Number'] for c in all_allocated[:3]}
+        # Extract priorities in allocation order per Spamurai
+        # Since contacts are allocated priority-by-priority, each Spamurai's list should be sorted by priority
+        for spamurai_name, contacts in result['spamurai_allocations'].items():
+            priorities = [c['Priority'] for c in contacts]
+            # Verify priorities are non-decreasing (sorted)
+            assert priorities == sorted(priorities), f"{spamurai_name}'s contacts should be sorted by priority"
 
-        # First 3 allocated should be all workshop contacts
-        assert first_three == workshop_phones
+        # Verify all Priority 1 contacts were allocated
+        priority_1_contacts = [c for c in all_allocated if c['Priority'] == 1]
+        assert len(priority_1_contacts) == 3  # Should have 3 Workshop contacts
 
     def test_excel_output(self, logger, temp_output):
         """Test Excel file is created with correct structure"""
@@ -198,7 +201,8 @@ class TestCenterBasedAllocation:
         is_valid, error_msg = allocator.validate_data()
         assert not is_valid
         assert 'CONTACTS' in error_msg
-        assert 'some have Center' in error_msg
+        assert 'have center' in error_msg
+        assert 'missing center' in error_msg
 
     def test_center_validation_spamurais_mixed(self, logger):
         """Test validation fails when some Spamurais have centers and some don't"""
@@ -210,7 +214,8 @@ class TestCenterBasedAllocation:
         is_valid, error_msg = allocator.validate_data()
         assert not is_valid
         assert 'SPAMURAIS' in error_msg
-        assert 'some have Center' in error_msg
+        assert 'have center' in error_msg
+        assert 'missing center' in error_msg
 
 
 class TestDeduplication:
@@ -343,7 +348,7 @@ class TestEdgeCases:
         # Check that unknown sources got priority 999
         for contact in allocator.contacts:
             if contact['Source of Interest'] in ['', 'Unknown Source']:
-                assert contact['priority'] == 999
+                assert contact['Priority'] == 999
 
     def test_special_characters_in_names(self, logger, temp_output):
         """Test special characters are handled correctly"""

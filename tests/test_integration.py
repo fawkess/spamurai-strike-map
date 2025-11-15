@@ -18,12 +18,15 @@ SRC_DIR = os.path.join(os.path.dirname(__file__), '..', 'src')
 
 @pytest.fixture
 def temp_output():
-    """Create temporary output file"""
-    with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-        yield tmp.name
+    """Create temporary output file path (without creating the file)"""
+    # Generate a unique temporary file path without creating the file
+    fd, tmp_path = tempfile.mkstemp(suffix='.xlsx')
+    os.close(fd)  # Close the file descriptor
+    os.unlink(tmp_path)  # Delete the empty file created by mkstemp
+    yield tmp_path
     # Cleanup
-    if os.path.exists(tmp.name):
-        os.remove(tmp.name)
+    if os.path.exists(tmp_path):
+        os.remove(tmp_path)
 
 
 class TestCLIInterface:

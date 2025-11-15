@@ -108,11 +108,12 @@ class ContactAllocator:
 
     def _parse_contacts(self, rows):
         """Parse contacts from sheet rows"""
-        if not rows:
-            raise Exception("No contacts data found")
-
         # Store raw data for output Excel (include headers)
         self.raw_contacts_data = [['Name', 'Phone Number', 'Center', 'Source of Interest']]
+
+        if not rows:
+            # Empty contacts list - validation will handle this
+            return
 
         # Expecting columns: Name | Phone Number | Center | Source of Interest
         for i, row in enumerate(rows):
@@ -134,11 +135,11 @@ class ContactAllocator:
             phone = phone.replace('.0', '')
 
             self.contacts.append({
-                'name': name,
-                'phone': phone,
-                'center': center,
-                'source': source,
-                'priority': None,  # Will be resolved later
+                'Name': name,
+                'Phone Number': phone,
+                'Center': center,
+                'Source of Interest': source,
+                'Priority': None,  # Will be resolved later
                 'row_index': i + 1
             })
 
@@ -165,8 +166,8 @@ class ContactAllocator:
                 continue
 
             self.spamurais.append({
-                'name': name,
-                'center': center,
+                'Name': name,
+                'Center': center,
                 'allocated_contacts': [],
                 'allocation_count': 0
             })
@@ -240,8 +241,8 @@ class ContactAllocator:
             (is_valid, error_message) tuple
         """
         # Check contacts
-        contacts_with_center = [c for c in self.contacts if c.get('center')]
-        contacts_without_center = [c for c in self.contacts if not c.get('center')]
+        contacts_with_center = [c for c in self.contacts if c.get('Center')]
+        contacts_without_center = [c for c in self.contacts if not c.get('Center')]
 
         if contacts_with_center and contacts_without_center:
             self.logger.error(
@@ -261,8 +262,8 @@ class ContactAllocator:
                     f"Either ALL contacts must have center or NONE.")
 
         # Check Spamurais
-        spamurais_with_center = [s for s in self.spamurais if s.get('center')]
-        spamurais_without_center = [s for s in self.spamurais if not s.get('center')]
+        spamurais_with_center = [s for s in self.spamurais if s.get('Center')]
+        spamurais_without_center = [s for s in self.spamurais if not s.get('Center')]
 
         if spamurais_with_center and spamurais_without_center:
             self.logger.error(
@@ -272,8 +273,8 @@ class ContactAllocator:
                 f"   Either ALL Spamurais must have center or NONE."
             )
             # Show examples
-            self.logger.error(f"\n   With center: {[s['name'] for s in spamurais_with_center]}")
-            self.logger.error(f"   Without center: {[s['name'] for s in spamurais_without_center]}")
+            self.logger.error(f"\n   With center: {[s['Name'] for s in spamurais_with_center]}")
+            self.logger.error(f"   Without center: {[s['Name'] for s in spamurais_without_center]}")
 
             return (False,
                     f"Center validation failed for SPAMURAIS: "
@@ -319,15 +320,15 @@ class ContactAllocator:
         duplicates = []
 
         for contact in self.contacts:
-            phone = contact['phone']
+            phone = contact['Phone Number']
             if phone not in seen_phones:
-                seen_phones[phone] = contact['name']
+                seen_phones[phone] = contact['Name']
                 unique_contacts.append(contact)
             else:
                 duplicates.append({
                     'phone': phone,
                     'kept_name': seen_phones[phone],
-                    'duplicate_name': contact['name']
+                    'duplicate_name': contact['Name']
                 })
                 self.duplicate_stats['input_duplicates'].append(contact)
 
@@ -350,18 +351,18 @@ class ContactAllocator:
         unknown_sources = set()
 
         for contact in self.contacts:
-            source = contact.get('source')
+            source = contact.get('Source of Interest')
 
             if not source:
                 # No source = lowest priority
-                contact['priority'] = 999
+                contact['Priority'] = 999
                 no_source_count += 1
             elif source in self.priorities:
                 # Known source
-                contact['priority'] = self.priorities[source]
+                contact['Priority'] = self.priorities[source]
             else:
                 # Unknown source = lowest priority
-                contact['priority'] = 999
+                contact['Priority'] = 999
                 unknown_sources.add(source)
 
         if no_source_count > 0:
@@ -428,8 +429,8 @@ class ContactAllocator:
                     if pd.notna(row.get('Name')) and pd.notna(row.get('Phone Number')):
                         phone = str(row['Phone Number']).strip().replace('.0', '')
                         contact = {
-                            'name': str(row['Name']).strip(),
-                            'phone': phone
+                            'Name': str(row['Name']).strip(),
+                            'Phone Number': phone
                         }
                         contacts.append(contact)
                         allocated_phones.add(phone)
@@ -439,7 +440,7 @@ class ContactAllocator:
             self.logger.info(f"✅ Loaded {len(allocated_phones)} existing allocations across {len(spamurai_allocations)} Spamurais")
 
             # Identify inactive Spamurais (in file but not in current input)
-            current_spamurai_names = {s['name'] for s in self.spamurais}
+            current_spamurai_names = {s['Name'] for s in self.spamurais}
             inactive_spamurais = [name for name in spamurai_allocations.keys()
                                  if name not in current_spamurai_names]
 
@@ -474,7 +475,7 @@ class ContactAllocator:
         already_allocated = []
 
         for contact in self.contacts:
-            if contact['phone'] in self.existing_allocations['allocated_phones']:
+            if contact['Phone Number'] in self.existing_allocations['allocated_phones']:
                 already_allocated.append(contact)
                 self.duplicate_stats['already_allocated'].append(contact)
             else:
@@ -505,12 +506,12 @@ class ContactAllocator:
         self.logger.info("="*60)
 
         # Step 1: Sort contacts by priority (ascending)
-        sorted_contacts = sorted(self.contacts, key=lambda c: c['priority'])
+        sorted_contacts = sorted(self.contacts, key=lambda c: c['Priority'])
 
         # Step 2: Group by priority
         priority_groups = defaultdict(list)
         for contact in sorted_contacts:
-            priority_groups[contact['priority']].append(contact)
+            priority_groups[contact['Priority']].append(contact)
 
         # Step 3: Allocate each priority group
         for priority in sorted(priority_groups.keys()):
@@ -533,8 +534,6 @@ class ContactAllocator:
         Args:
             contacts: List of contacts at same priority
         """
-        spamurai_index = 0
-
         for contact in contacts:
             # Get eligible Spamurais for this contact
             eligible = self._get_eligible_spamurais(contact)
@@ -543,17 +542,18 @@ class ContactAllocator:
                 # No eligible Spamurai - add to unallocated
                 reason = self._get_unallocation_reason(contact)
                 self.unallocated.append({
-                    'contact': contact,
-                    'reason': reason
+                    'Name': contact['Name'],
+                    'Phone Number': contact['Phone Number'],
+                    'Center': contact.get('Center') or '',
+                    'Source of Interest': contact.get('Source of Interest') or '',
+                    'Reason': reason
                 })
                 continue
 
-            # Round-robin assignment
-            selected_spamurai = eligible[spamurai_index % len(eligible)]
+            # Assign to the Spamurai with the least contacts (ensures even distribution)
+            selected_spamurai = min(eligible, key=lambda s: s['allocation_count'])
             selected_spamurai['allocated_contacts'].append(contact)
             selected_spamurai['allocation_count'] += 1
-
-            spamurai_index += 1
 
     def _get_eligible_spamurais(self, contact):
         """
@@ -570,10 +570,10 @@ class ContactAllocator:
             List of eligible Spamurai dictionaries
         """
         eligible = []
-        contact_center = contact.get('center')
+        contact_center = contact.get('Center')
 
         for spamurai in self.spamurais:
-            spamurai_center = spamurai.get('center')
+            spamurai_center = spamurai.get('Center')
 
             # Both have centers - must match
             if contact_center and spamurai_center:
@@ -587,11 +587,11 @@ class ContactAllocator:
 
     def _get_unallocation_reason(self, contact):
         """Get reason why contact couldn't be allocated"""
-        contact_center = contact.get('center')
+        contact_center = contact.get('Center')
 
         if contact_center:
             # Check if any Spamurai has this center
-            spamurai_centers = [s.get('center') for s in self.spamurais if s.get('center')]
+            spamurai_centers = [s.get('Center') for s in self.spamurais if s.get('Center')]
             if contact_center not in spamurai_centers:
                 return f"No Spamurai with center '{contact_center}'"
 
@@ -607,19 +607,19 @@ class ContactAllocator:
         # Build Spamurai breakdown
         spamurai_breakdown = {}
         for spamurai in self.spamurais:
-            spamurai_breakdown[spamurai['name']] = {
+            spamurai_breakdown[spamurai['Name']] = {
                 'count': spamurai['allocation_count'],
-                'center': spamurai.get('center')
+                'center': spamurai.get('Center')
             }
 
         # Build priority distribution
         priority_distribution = defaultdict(int)
         for spamurai in self.spamurais:
             for contact in spamurai['allocated_contacts']:
-                priority_distribution[contact['priority']] += 1
+                priority_distribution[contact['Priority']] += 1
 
         return {
-            'spamurai_allocations': {s['name']: s['allocated_contacts'] for s in self.spamurais},
+            'spamurai_allocations': {s['Name']: s['allocated_contacts'] for s in self.spamurais},
             'unallocated': self.unallocated,
             'summary': {
                 'total_contacts': total_contacts,
@@ -694,8 +694,7 @@ class ContactAllocator:
             self.logger.info(f"⚠️  {len(self.unallocated)} Unallocated Contacts:")
             self.logger.info("-" * 60)
             for item in self.unallocated[:10]:  # Show first 10
-                contact = item['contact']
-                self.logger.info(f"  {contact['name']:20s} {contact['phone']:15s} - {item['reason']}")
+                self.logger.info(f"  {item['Name']:20s} {item['Phone Number']:15s} - {item['Reason']}")
             if len(self.unallocated) > 10:
                 self.logger.info(f"  ... and {len(self.unallocated) - 10} more")
 
@@ -773,7 +772,7 @@ class ContactAllocator:
 
             # Tab 5+: One tab per Spamurai (merge with existing if incremental)
             for spamurai in self.spamurais:
-                tab_name = spamurai['name']
+                tab_name = spamurai['Name']
                 new_contacts = spamurai['allocated_contacts']
 
                 # In incremental mode, merge with existing allocations
@@ -787,8 +786,8 @@ class ContactAllocator:
                     seen_phones = set()
                     deduplicated_contacts = []
                     for contact in all_contacts:
-                        if contact['phone'] not in seen_phones:
-                            seen_phones.add(contact['phone'])
+                        if contact['Phone Number'] not in seen_phones:
+                            seen_phones.add(contact['Phone Number'])
                             deduplicated_contacts.append(contact)
 
                     total_count = len(deduplicated_contacts)
@@ -805,8 +804,8 @@ class ContactAllocator:
                 contacts_data = []
                 for contact in final_contacts:
                     contacts_data.append({
-                        'Name': contact['name'],
-                        'Phone Number': contact['phone']
+                        'Name': contact['Name'],
+                        'Phone Number': contact['Phone Number']
                     })
 
                 if contacts_data:
@@ -829,8 +828,8 @@ class ContactAllocator:
                         contacts_data = []
                         for contact in existing_contacts:
                             contacts_data.append({
-                                'Name': contact['name'],
-                                'Phone Number': contact['phone']
+                                'Name': contact['Name'],
+                                'Phone Number': contact['Phone Number']
                             })
 
                         df_inactive = pd.DataFrame(contacts_data)
@@ -840,18 +839,11 @@ class ContactAllocator:
             if self.unallocated:
                 self.logger.info(f"Writing 'Unallocated' tab ({len(self.unallocated)} contacts)...")
 
-                unallocated_data = []
-                for item in self.unallocated:
-                    contact = item['contact']
-                    unallocated_data.append({
-                        'Name': contact['name'],
-                        'Phone Number': contact['phone'],
-                        'Center': contact.get('center') or '',
-                        'Source': contact.get('source') or '',
-                        'Reason': item['reason']
-                    })
-
-                df_unallocated = pd.DataFrame(unallocated_data)
+                # Unallocated items already have the correct structure
+                df_unallocated = pd.DataFrame(self.unallocated)
+                # Rename 'Source of Interest' to 'Source' for display
+                if 'Source of Interest' in df_unallocated.columns:
+                    df_unallocated.rename(columns={'Source of Interest': 'Source'}, inplace=True)
                 df_unallocated.to_excel(writer, sheet_name='Unallocated', index=False)
 
         self.logger.info("")

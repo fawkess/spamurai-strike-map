@@ -45,6 +45,8 @@ Create a Google Sheet with these three tabs:
 ### 2. Run the Allocator
 
 ```bash
+
+
 # Basic usage
 python src/allocate_contacts.py --sheet-url "YOUR_GOOGLE_SHEET_URL"
 

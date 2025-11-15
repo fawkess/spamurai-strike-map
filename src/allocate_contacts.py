@@ -242,7 +242,7 @@ def main():
             logger.info("    - Summary (statistics)")
             for spamurai in allocator.spamurais:
                 count = spamurai['allocation_count']
-                logger.info(f"    - {spamurai['name']:20s} ({count} contacts)")
+                logger.info(f"    - {spamurai['Name']:20s} ({count} contacts)")
             if allocator.unallocated:
                 logger.info(f"    - Unallocated          ({len(allocator.unallocated)} contacts)")
             logger.info("")
