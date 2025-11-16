@@ -22,7 +22,7 @@ import pandas as pd
 class ContactAllocator:
     """Handles contact allocation logic"""
 
-    def __init__(self, sheet_url, logger, config=None):
+    def __init__(self, sheet_url, logger, config=None, max_allocations_per_spamurai=None):
         """
         Initialize contact allocator
 
@@ -30,10 +30,12 @@ class ContactAllocator:
             sheet_url: Google Sheets URL with input data
             logger: Logger instance for output
             config: Optional configuration dict
+            max_allocations_per_spamurai: Optional limit on contacts per Spamurai
         """
         self.sheet_url = sheet_url
         self.logger = logger
         self.config = config or {}
+        self.max_allocations_per_spamurai = max_allocations_per_spamurai
 
         # Tab names from config or defaults
         self.contacts_tab = self.config.get('contacts_tab', 'All Contacts')
@@ -546,6 +548,7 @@ class ContactAllocator:
         - If Spamurai has NO center → eligible for ALL contacts
         - If BOTH have centers → must match exactly
         - Mixed scenarios are allowed (some with centers, some without)
+        - If max_allocations_per_spamurai is set, exclude Spamurais at/over limit
 
         Args:
             contact: Contact dictionary
@@ -558,6 +561,11 @@ class ContactAllocator:
 
         for spamurai in self.spamurais:
             spamurai_center = spamurai.get('Center')
+
+            # Check if Spamurai has reached allocation limit
+            if self.max_allocations_per_spamurai is not None:
+                if spamurai['allocation_count'] >= self.max_allocations_per_spamurai:
+                    continue
 
             # If contact has no center, can go to any Spamurai
             if not contact_center:
@@ -577,6 +585,23 @@ class ContactAllocator:
 
         if not self.spamurais:
             return "No Spamurais available"
+
+        # Check if all eligible Spamurais are at max limit
+        if self.max_allocations_per_spamurai is not None:
+            eligible_count = 0
+            at_limit_count = 0
+            for spamurai in self.spamurais:
+                spamurai_center = spamurai.get('Center')
+                # Check if this Spamurai matches center criteria
+                center_match = (not contact_center or not spamurai_center or
+                               contact_center == spamurai_center)
+                if center_match:
+                    eligible_count += 1
+                    if spamurai['allocation_count'] >= self.max_allocations_per_spamurai:
+                        at_limit_count += 1
+
+            if eligible_count > 0 and at_limit_count == eligible_count:
+                return f"All eligible Spamurais have reached max allocation limit ({self.max_allocations_per_spamurai})"
 
         if contact_center:
             # Contact has a center but no matching Spamurai
@@ -634,6 +659,11 @@ class ContactAllocator:
             self.logger.info("ALLOCATION SUMMARY")
         self.logger.info("="*60)
 
+        # Show allocation limit if configured
+        if self.max_allocations_per_spamurai is not None:
+            self.logger.info("")
+            self.logger.info(f"Allocation Limit: {self.max_allocations_per_spamurai} contacts per Spamurai")
+
         summary = self.allocation_result['summary']
 
         # Show incremental mode statistics if applicable
@@ -673,7 +703,12 @@ class ContactAllocator:
         self.logger.info("-" * 60)
         for name, stats in summary['spamurai_breakdown'].items():
             center_info = f"({stats['center']})" if stats['center'] else "(Any)"
-            self.logger.info(f"  {name:20s} {center_info:15s} {stats['count']:3d} new contacts")
+            count_str = f"{stats['count']:3d} new contacts"
+            # Add limit indicator if applicable
+            if self.max_allocations_per_spamurai is not None:
+                if stats['count'] >= self.max_allocations_per_spamurai:
+                    count_str += " [AT LIMIT]"
+            self.logger.info(f"  {name:20s} {center_info:15s} {count_str}")
 
         if summary['priority_distribution']:
             self.logger.info("")

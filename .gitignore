@@ -49,6 +49,7 @@ tests/test_output/
 
 # Config (if added later)
 config.json
+allocator_config.json
 credentials.json
 .coverage
 htmlcov/

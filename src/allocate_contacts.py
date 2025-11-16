@@ -14,6 +14,7 @@ import sys
 import os
 import argparse
 import logging
+import json
 
 # Always include script directory in module search path
 sys.path.append(os.path.dirname(__file__))
@@ -33,6 +34,28 @@ def setup_logger():
     return logging.getLogger(__name__)
 
 
+def load_config_file(config_path):
+    """
+    Load configuration from JSON file
+
+    Args:
+        config_path: Path to config JSON file
+
+    Returns:
+        Dict with config values
+    """
+    if not config_path:
+        return {}
+
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    with open(config_path, 'r', encoding='utf-8') as f:
+        config = json.load(f)
+
+    return config
+
+
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
@@ -43,6 +66,9 @@ Examples:
   # Basic usage
   python src/allocate_contacts.py --sheet-url "https://docs.google.com/spreadsheets/d/YOUR_ID/edit"
 
+  # Use config file for defaults
+  python src/allocate_contacts.py --config allocator_config.json --sheet-url "URL"
+
   # Custom output filename
   python src/allocate_contacts.py --sheet-url "URL" --output my_allocation.xlsx
 
@@ -51,6 +77,17 @@ Examples:
 
   # Custom tab names
   python src/allocate_contacts.py --sheet-url "URL" --contacts-tab "My Contacts"
+
+  # Limit allocations per Spamurai (e.g., max 50 contacts each)
+  python src/allocate_contacts.py --sheet-url "URL" --max-allocations-per-spamurai 50
+
+  # Override config file limit with CLI argument
+  python src/allocate_contacts.py --config allocator_config.json --sheet-url "URL" --max-allocations-per-spamurai 25
+
+Configuration:
+  - Create allocator_config.json based on allocator_config.example.json
+  - Config file sets default values, CLI arguments override them
+  - Priority: CLI arguments > config file > built-in defaults
 
 Output:
   - Creates an Excel file with INPUT tabs (original data) and OUTPUT tabs (allocation results)
@@ -62,6 +99,12 @@ Requirements:
   - Google Sheet must be shared as "Anyone with the link can view"
   - Dependencies: pip install pandas openpyxl requests
         """
+    )
+
+    parser.add_argument(
+        '--config',
+        default=None,
+        help='Path to config JSON file (optional, for setting defaults)'
     )
 
     parser.add_argument(
@@ -106,6 +149,13 @@ Requirements:
         help='Enable verbose output'
     )
 
+    parser.add_argument(
+        '--max-allocations-per-spamurai',
+        type=int,
+        default=None,
+        help='Maximum number of contacts each Spamurai can receive (default: unlimited)'
+    )
+
     return parser.parse_args()
 
 
@@ -121,24 +171,49 @@ def main():
     print("="*70)
     print()
 
-    # Use command line arguments
+    # Load config file if provided
+    file_config = {}
+    if args.config:
+        try:
+            file_config = load_config_file(args.config)
+            logger.info(f"Loaded config from: {args.config}")
+        except Exception as e:
+            logger.error(f"Error loading config file: {e}")
+            sys.exit(1)
+
+    # Merge config: CLI arguments override config file values
+    # Tab names
+    contacts_tab = args.contacts_tab or file_config.get('contacts_tab', 'All Contacts')
+    spamurais_tab = args.spamurais_tab or file_config.get('spamurais_tab', 'Spamurais')
+    priorities_tab = args.priorities_tab or file_config.get('priorities_tab', 'Source Priorities')
+
+    # Allocation limit: CLI > config file > None (unlimited)
+    max_allocations = args.max_allocations_per_spamurai
+    if max_allocations is None and 'max_allocations_per_spamurai' in file_config:
+        max_allocations = file_config['max_allocations_per_spamurai']
+
+    # Build config dict
     sheet_url = args.sheet_url
     config = {
-        'contacts_tab': args.contacts_tab,
-        'spamurais_tab': args.spamurais_tab,
-        'priorities_tab': args.priorities_tab
+        'contacts_tab': contacts_tab,
+        'spamurais_tab': spamurais_tab,
+        'priorities_tab': priorities_tab
     }
 
     logger.info(f"Input Sheet: {sheet_url}")
     if not args.dry_run:
         logger.info(f"Output File: {args.output}")
+    if max_allocations:
+        source = "CLI" if args.max_allocations_per_spamurai else "config"
+        logger.info(f"Allocation Limit: {max_allocations} contacts per Spamurai (from {source})")
     logger.info("")
 
     # Create allocator
     allocator = ContactAllocator(
         sheet_url,
         logger,
-        config=config
+        config=config,
+        max_allocations_per_spamurai=max_allocations
     )
 
     try:

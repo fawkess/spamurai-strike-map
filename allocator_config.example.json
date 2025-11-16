@@ -1,0 +1,16 @@
+{
+  "_comment": "SPAMURAI Contact Allocator - Configuration File",
+  "_description": "This file contains default settings for the contact allocator. CLI arguments will override these values.",
+
+  "max_allocations_per_spamurai": 50,
+  "_max_allocations_help": "Maximum number of contacts each Spamurai can receive per run. Set to null for unlimited.",
+
+  "contacts_tab": "All Contacts",
+  "_contacts_tab_help": "Name of the Google Sheets tab containing contact data",
+
+  "spamurais_tab": "Spamurais",
+  "_spamurais_tab_help": "Name of the Google Sheets tab containing Spamurai list",
+
+  "priorities_tab": "Source Priorities",
+  "_priorities_tab_help": "Name of the Google Sheets tab containing source priority mappings"
+}
